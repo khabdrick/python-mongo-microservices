@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Blog Platform</title>
+    <script>
+        async function fetchPosts() {
+            const response = await fetch('/posts');
+            const posts = await response.json();
+            const postsDiv = document.getElementById('posts');
+            postsDiv.innerHTML = '';
+            posts.forEach(post => {
+                const postDiv = document.createElement('div');
+                postDiv.innerHTML = `
+                    <h2>${post.title}</h2>
+                    <p>${post.content}</p>
+                    <button onclick="fetchComments('${post._id}')">View Comments</button>
+                    <button onclick="showUpdateForm('${post._id}', '${post.title}', '${post.content}')">Update Post</button>
+                    <button onclick="deletePost('${post._id}')">Delete Post</button>
+                    <div id="comments-${post._id}"></div>
+                    <input type="text" id="new-comment-${post._id}" placeholder="Add a comment">
+                    <button onclick="addComment('${post._id}')">Comment</button>`;
+                postsDiv.appendChild(postDiv);
+            });
+        }
+
+        async function fetchComments(postId) {
+            try {
+                const response = await fetch(`/posts/${postId}/comments`);
+                if (!response.ok) throw new Error('Failed to fetch comments');
+                const comments = await response.json();
+                const commentsDiv = document.getElementById(`comments-${postId}`);
+                commentsDiv.innerHTML = '<h3>Comments</h3>';
+                comments.forEach(comment => {
+                    const commentDiv = document.createElement('div');
+                    commentDiv.innerHTML = `<p>${comment.content}</p>`;
+                    commentsDiv.appendChild(commentDiv);
+                });
+                startCommentWebSocket(postId);
+            } catch (error) {
+                console.error('Error fetching comments:', error);
+            }
+        }
+        
+
+        // function startCommentWebSocket(postId) {
+        //     const socket = new WebSocket(`ws://${window.location.host}/ws/comments/${postId}`);
+        //     socket.onmessage = function(event) {
+        //         const comment = JSON.parse(event.data);
+        //         const commentsDiv = document.getElementById(`comments-${postId}`);
+        //         const commentDiv = document.createElement('div');
+        //         commentDiv.innerHTML = `<p>${comment.content}</p>`;
+        //         commentsDiv.appendChild(commentDiv);
+        //     };
+        // }
+
+        async function addComment(postId) {
+            const commentInput = document.getElementById(`new-comment-${postId}`);
+            const content = commentInput.value;
+            if (content) {
+                const data = { post_id: postId, content: content };
+                try {
+                    const response = await fetch('http://localhost:8001/comments', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(data),
+                    });
+        
+                    if (response.ok) {
+                        commentInput.value = '';
+                        fetchComments(postId); // Refresh comments after adding
+                    } else {
+                        throw new Error(`Failed to add comment: ${response.statusText}`);
+                    }
+                } catch (error) {
+                    console.error('Error adding comment:', error);
+                }
+            }
+        }
+
+        async function createPost() {
+            const title = document.getElementById('new-post-title').value;
+            const content = document.getElementById('new-post-content').value;
+            if (title && content) {
+                await fetch('/posts', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ title: title, content: content }),
+                });
+                fetchPosts();
+                document.getElementById('new-post-title').value = '';
+                document.getElementById('new-post-content').value = '';
+            }
+        }
+
+        async function updatePost(postId) {
+            const title = document.getElementById(`update-title-${postId}`).value;
+            const content = document.getElementById(`update-content-${postId}`).value;
+            if (title && content) {
+                await fetch(`/posts/${postId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ title: title, content: content }),
+                });
+                fetchPosts();
+                hideUpdateForm(postId);
+            }
+        }
+
+        async function deletePost(postId) {
+            await fetch(`/posts/${postId}`, {
+                method: 'DELETE',
+            });
+            fetchPosts();
+        }
+
+        function showUpdateForm(postId, title, content) {
+            const updateForm = document.getElementById('update-form');
+            updateForm.innerHTML = `
+                <h3>Update Post</h3>
+                <input type="text" id="update-title-${postId}" value="${title}">
+                <input type="text" id="update-content-${postId}" value="${content}">
+                <button onclick="updatePost('${postId}')">Update Post</button>
+                <button onclick="hideUpdateForm('${postId}')">Cancel</button>`;
+            updateForm.style.display = 'block';
+        }
+
+        function hideUpdateForm() {
+            const updateForm = document.getElementById('update-form');
+            updateForm.style.display = 'none';
+        }
+
+        fetchPosts();
+    </script>
+</head>
+<body>
+    <h1>Blog Posts</h1>
+    <div id="posts"></div>
+    <h3>Create New Post</h3>
+    <input type="text" id="new-post-title" placeholder="Post Title">
+    <input type="text" id="new-post-content" placeholder="Post Content">
+    <button onclick="createPost()">Create Post</button>
+    <div id="update-form" style="display:none;"></div>
+</body>
+</html>

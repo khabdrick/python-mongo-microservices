@@ -63,6 +63,7 @@ clients = {}
 
 @app.websocket("/ws/comments/{post_id}")
 async def websocket_endpoint(websocket: WebSocket, post_id: str):
+    # monitor and stream real-time updates for comments related to a specific post
     await websocket.accept()
     if post_id not in clients:
         clients[post_id] = []

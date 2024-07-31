@@ -35,7 +35,7 @@
                     commentDiv.innerHTML = `<p>${comment.content}</p>`;
                     commentsDiv.appendChild(commentDiv);
                 });
-                startCommentWebSocket(postId);
+                // startCommentWebSocket(postId);
             } catch (error) {
                 console.error('Error fetching comments:', error);
             }

@@ -9,7 +9,7 @@ import httpx
 
 app = FastAPI()
 
-client = AsyncIOMotorClient('mongodb://localhost:27017')
+client = AsyncIOMotorClient('mongodb://localhost:27017/?replicaSet=rs0')
 db = client.blog
 templates = Jinja2Templates(directory="templates")
 

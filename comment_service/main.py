@@ -46,3 +46,31 @@ async def create_comment(comment: Comment):
 
     return Comment(**comment_dict)
 
+# @app.get("/comments/{post_id}", response_model=List[Comment])
+# async def get_comments(post_id: str):
+#     if not ObjectId.is_valid(post_id):
+#         raise HTTPException(status_code=400, detail="Invalid post ID")
+#     comments = await db.comments.find({"post_id": post_id}).to_list(100)
+#     for comment in comments:
+#         comment["_id"] = str(comment["_id"])
+#     return [Comment(**comment) for comment in comments]
+
+clients = {}
+
+@app.websocket("/ws/comments/{post_id}")
+async def websocket_endpoint(websocket: WebSocket, post_id: str):
+    # monitor and stream real-time updates for comments related to a specific post
+    await websocket.accept()
+    if post_id not in clients:
+        clients[post_id] = []
+    clients[post_id].append(websocket)
+    try:
+        async with db.comments.watch([{'$match': {'fullDocument.post_id': post_id}}]) as stream:
+            async for change in stream:
+                for client in clients[post_id]:
+                    await client.send_json(change['fullDocument'])
+    except WebSocketDisconnect:
+        clients[post_id].remove(websocket)
+        if not clients[post_id]:
+            del clients[post_id]
+        print(f"Client for post {post_id} disconnected")
